@@ -234,9 +234,6 @@ max_movie = hist_df.loc[max_idx, "movieNm"]
 max_audi = hist_df.loc[max_idx, "total_audi"]
 
 
-# --------------------------------------------------
-# 그래프 설명
-# --------------------------------------------------
 st.divider()
 
 st.markdown("**이 그래프로 알 수 있는 것**")
@@ -250,4 +247,92 @@ st.write(
 st.write(
     f"총 관객이 가장 많은 영화는 **{max_movie}**로, "
     f"총 **{max_audi:,.0f}명**의 관객을 모았습니다."
+)
+
+
+# ==================================================
+# 그래프 4. 개봉일 스크린 수와 총 관객의 관계
+# ==================================================
+st.header("4. 개봉일 스크린 수와 총 관객의 관계")
+
+scatter_df = df[
+    ["movieNm", "genre_first", "first_scrn", "total_audi"]
+].copy()
+
+# 숫자가 아닌 값이나 결측값을 안전하게 제거
+scatter_df["first_scrn"] = pd.to_numeric(
+    scatter_df["first_scrn"],
+    errors="coerce",
+)
+
+scatter_df["total_audi"] = pd.to_numeric(
+    scatter_df["total_audi"],
+    errors="coerce",
+)
+
+scatter_df = scatter_df.dropna(
+    subset=["first_scrn", "total_audi"]
+)
+
+# 영화명이 비어 있으면 표시용 이름 지정
+scatter_df["movieNm"] = (
+    scatter_df["movieNm"]
+    .fillna("영화명 없음")
+    .astype(str)
+)
+
+# 장르가 비어 있으면 미분류
+scatter_df["genre_first"] = (
+    scatter_df["genre_first"]
+    .fillna("미분류")
+    .astype(str)
+)
+
+
+fig4 = px.scatter(
+    scatter_df,
+    x="first_scrn",
+    y="total_audi",
+    color="genre_first",
+    hover_name="movieNm",
+    title="개봉일 스크린 수와 총 관객",
+    labels={
+        "first_scrn": "개봉일 스크린 수",
+        "total_audi": "총 관객 수",
+        "genre_first": "장르",
+    },
+)
+
+
+# 마우스를 올렸을 때 영화명과 수치를 함께 표시
+fig4.update_traces(
+    hovertemplate=(
+        "<b>%{hovertext}</b><br>"
+        "개봉일 스크린 수: %{x:,.0f}개<br>"
+        "총 관객: %{y:,.0f}명"
+        "<extra></extra>"
+    ),
+    marker=dict(
+        size=9,
+        opacity=0.75,
+    ),
+)
+
+fig4.update_layout(
+    xaxis_title="개봉일 스크린 수",
+    yaxis_title="총 관객 수",
+    legend_title="장르",
+    margin=dict(t=60, l=20, r=20, b=20),
+)
+
+st.plotly_chart(fig4, use_container_width=True)
+
+st.divider()
+
+st.markdown("**이 그래프로 알 수 있는 것**")
+
+st.text_input(
+    "네 번째 그래프의 내용을 한 문장으로 적어 보세요.",
+    placeholder="예: 개봉일 스크린 수와 총 관객 수의 관계를 살펴볼 수 있다.",
+    key="graph4_note",
 )
