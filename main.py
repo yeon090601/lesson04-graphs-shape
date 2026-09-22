@@ -43,7 +43,6 @@ def load_data():
     df = df[columns].copy()
 
     # 여러 장르가 있는 경우 첫 번째 장르만 사용
-    # 예: 액션|드라마 -> 액션
     df["genre_first"] = (
         df["genre"]
         .fillna("미분류")
@@ -54,6 +53,18 @@ def load_data():
     )
 
     df.loc[df["genre_first"] == "", "genre_first"] = "미분류"
+
+    # 여러 국가가 있는 경우 첫 번째 국가만 사용
+    df["nation_first"] = (
+        df["nation"]
+        .fillna("미분류")
+        .astype(str)
+        .str.split(r"[|/]", regex=True)
+        .str[0]
+        .str.strip()
+    )
+
+    df.loc[df["nation_first"] == "", "nation_first"] = "미분류"
 
     return df
 
@@ -207,9 +218,6 @@ fig3.update_layout(
 st.plotly_chart(fig3, use_container_width=True)
 
 
-# --------------------------------------------------
-# 대부분의 영화가 몰려 있는 구간 계산
-# --------------------------------------------------
 counts, bin_edges = pd.cut(
     hist_df["total_audi"],
     bins=20,
@@ -218,18 +226,12 @@ counts, bin_edges = pd.cut(
 )
 
 bin_counts = counts.value_counts().sort_index()
-
 most_common_bin = bin_counts.idxmax()
 
 range_start = most_common_bin.left
 range_end = most_common_bin.right
 
-
-# --------------------------------------------------
-# 가장 관객이 많은 영화 계산
-# --------------------------------------------------
 max_idx = hist_df["total_audi"].idxmax()
-
 max_movie = hist_df.loc[max_idx, "movieNm"]
 max_audi = hist_df.loc[max_idx, "total_audi"]
 
@@ -356,10 +358,7 @@ box_df["movieNm"] = (
     .astype(str)
 )
 
-genre_movie_counts = (
-    box_df["genre_first"]
-    .value_counts()
-)
+genre_movie_counts = box_df["genre_first"].value_counts()
 
 selected_genres = genre_movie_counts[
     genre_movie_counts >= 10
@@ -424,7 +423,6 @@ bubble_df = df[
     ]
 ].copy()
 
-# 숫자로 변환
 bubble_df["first_scrn"] = pd.to_numeric(
     bubble_df["first_scrn"],
     errors="coerce",
@@ -440,7 +438,6 @@ bubble_df["first_week_audi"] = pd.to_numeric(
     errors="coerce",
 )
 
-# 산점도에 필요한 값이 모두 있는 영화만 사용
 bubble_df = bubble_df.dropna(
     subset=[
         "first_scrn",
@@ -449,7 +446,6 @@ bubble_df = bubble_df.dropna(
     ]
 )
 
-# 영화명과 장르 결측값 처리
 bubble_df["movieNm"] = (
     bubble_df["movieNm"]
     .fillna("영화명 없음")
@@ -462,11 +458,9 @@ bubble_df["genre_first"] = (
     .astype(str)
 )
 
-# 첫 주 관객이 0보다 작은 비정상적인 값은 제외
 bubble_df = bubble_df[
     bubble_df["first_week_audi"] >= 0
 ].copy()
-
 
 fig6 = px.scatter(
     bubble_df,
@@ -485,7 +479,6 @@ fig6 = px.scatter(
     },
 )
 
-
 fig6.update_traces(
     hovertemplate=(
         "<b>%{hovertext}</b><br>"
@@ -502,7 +495,6 @@ fig6.update_traces(
         ),
     ),
 )
-
 
 fig6.update_layout(
     xaxis_title="개봉일 스크린 수",
@@ -521,4 +513,83 @@ st.text_input(
     "여섯 번째 그래프의 내용을 한 문장으로 적어 보세요.",
     placeholder="예: 개봉일 스크린 수와 총 관객의 관계를 첫 주 관객 규모와 함께 살펴볼 수 있다.",
     key="graph6_note",
+)
+
+
+# ==================================================
+# 그래프 7. 제작 국가 → 장르 선버스트
+# ==================================================
+st.header("7. 제작 국가에서 장르로 내려가는 영화 구성")
+
+sunburst_df = df[
+    ["nation_first", "genre_first"]
+].copy()
+
+# 국가와 장르의 결측값 처리
+sunburst_df["nation_first"] = (
+    sunburst_df["nation_first"]
+    .fillna("미분류")
+    .astype(str)
+    .str.strip()
+)
+
+sunburst_df["genre_first"] = (
+    sunburst_df["genre_first"]
+    .fillna("미분류")
+    .astype(str)
+    .str.strip()
+)
+
+sunburst_df.loc[
+    sunburst_df["nation_first"] == "",
+    "nation_first"
+] = "미분류"
+
+sunburst_df.loc[
+    sunburst_df["genre_first"] == "",
+    "genre_first"
+] = "미분류"
+
+
+# 국가 → 장르별 영화 편수 집계
+sunburst_counts = (
+    sunburst_df
+    .groupby(
+        ["nation_first", "genre_first"],
+        as_index=False
+    )
+    .size()
+    .rename(columns={"size": "영화 편수"})
+)
+
+
+fig7 = px.sunburst(
+    sunburst_counts,
+    path=["nation_first", "genre_first"],
+    values="영화 편수",
+    title="제작 국가 → 장르별 영화 편수",
+)
+
+fig7.update_traces(
+    hovertemplate=(
+        "<b>%{label}</b><br>"
+        "영화 편수: %{value}편"
+        "<extra></extra>"
+    ),
+)
+
+fig7.update_layout(
+    margin=dict(t=60, l=20, r=20, b=20),
+)
+
+st.plotly_chart(fig7, use_container_width=True)
+
+st.divider()
+
+st.markdown("**이 그래프로 알 수 있는 것**")
+
+st.text_input(
+    "일곱 번째 그래프의 내용을 한 문장으로 적어 보세요.",
+    placeholder="예: 제작 국가별로 어떤 장르의 영화가 많이 포함되어 있는지 알 수 있다.",
+    key="graph7_note",
 )
